@@ -17,88 +17,87 @@ const optimizeResume = async (req, res) => {
 
         console.log("Optimizing resume, text length:", resumeText.length);
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        
-        // System prompt for resume optimization
-        const systemPrompt = `You are an assistant that rewrites resumes to be ATS-friendly.
-- Keep real experience, don't invent jobs/dates.
-- Use concise bullet points.
-- Include keywords from the JD only where truthful.
-- Return ONLY the optimized resume text. Do NOT include match score or missing keywords in the resume text.
-- The resume should be clean, professional text without any JSON or metadata.
-- Format the resume professionally with clear sections and proper spacing.`;
-        
-        // First call: Get optimized resume
-        const optimizePrompt = `${systemPrompt}
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                temperature: 0.3, // more stable results
+                maxOutputTokens: 2048,
+            },
+        });
+
+        // Unified system + task prompt
+        const prompt = `
+You are an expert ATS resume optimizer.
+
+GOALS:
+- Rewrite the given resume to be ATS-friendly and aligned with the job description.
+- Keep it detailed, at least one full page in length (not shorter than the input).
+- Do NOT invent jobs, dates, or false information.
+- Maintain all real experience, skills, and education.
+- Use concise, professional bullet points.
+- Integrate keywords from the JD naturally where truthful.
+- Organize into clear sections: Summary, Skills, Experience, Education.
+- Output should be clean, professional resume text — no JSON, no metadata, no markdown.
+
+ANALYSIS REQUIREMENTS:
+After optimizing, analyze the resume against the job description and provide:
+1. A match score (0–100).
+2. A list of missing keywords.
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON object in this structure:
+{
+  "optimizedResume": "string",
+  "matchScore": number,
+  "missingKeywords": ["keyword1", "keyword2"]
+}
 
 Job Description:
 ${jobDescription}
 
-Resume:
+Original Resume:
 ${resumeText}
+        `;
 
-Rewrite this resume to be ATS-friendly and tailored to the job description.`;
-        
-        const optimizeResult = await model.generateContent(optimizePrompt);
-        const optimizedText = optimizeResult.response.text().trim();
-        
-        // Second call: Get analysis
-        const analysisPrompt = `Analyze this resume against the job description and provide:
-1. A match score (0-100) based on how well the resume aligns with the job requirements
-2. Missing keywords that should be considered for inclusion
+        const result = await model.generateContent(prompt);
+        const rawText = result.response.text().trim();
 
-Job Description:
-${jobDescription}
+        console.log("Raw Gemini response:", rawText);
 
-Resume:
-${resumeText}
+        let parsed = null;
 
-Respond with ONLY a JSON object in this exact format: {"matchScore": number, "missingKeywords": ["keyword1", "keyword2"]}`;
-        
-        const analysisResult = await model.generateContent(analysisPrompt);
-        const analysisText = analysisResult.response.text().trim();
-        
-        let matchScore = null;
-        let missingKeywords = [];
-        
-        // Parse the analysis JSON
+        // Try parsing Gemini response into JSON
         try {
-            const analysis = JSON.parse(analysisText);
-            matchScore = analysis.matchScore ?? null;
-            missingKeywords = analysis.missingKeywords ?? [];
+            parsed = JSON.parse(rawText);
         } catch (e) {
-            console.error("Analysis JSON parse error:", e);
-            console.log("Raw analysis response:", analysisText);
-            
-            // Fallback: try to extract JSON from the response
-            const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+            console.error("JSON parse error:", e);
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 try {
-                    const analysis = JSON.parse(jsonMatch[0]);
-                    matchScore = analysis.matchScore ?? null;
-                    missingKeywords = analysis.missingKeywords ?? [];
-                } catch (fallbackError) {
-                    console.error("Fallback JSON parse also failed:", fallbackError);
-                    // Set default values if parsing fails
-                    matchScore = 75;
-                    missingKeywords = ["Unable to analyze"];
+                    parsed = JSON.parse(jsonMatch[0]);
+                } catch (nestedErr) {
+                    console.error("Fallback JSON parse also failed:", nestedErr);
                 }
             }
         }
 
-        console.log("Optimization complete - Match Score:", matchScore, "Missing Keywords:", missingKeywords.length);
+        // Apply defaults if parsing still fails
+        if (!parsed || !parsed.optimizedResume) {
+            console.warn("Using fallback values for response");
+            parsed = {
+                optimizedResume: resumeText, // return original instead of nothing
+                matchScore: 70,
+                missingKeywords: ["Parsing issue — please retry"],
+            };
+        }
 
-        return res.json({
-            optimizedResume: optimizedText,
-            missingKeywords,
-            matchScore
-        });
+        return res.json(parsed);
 
     } catch (err) {
         console.error('Optimization error:', err);
-        return res.status(500).json({ 
-            message: "Error optimizing resume", 
-            error: err.message 
+        return res.status(500).json({
+            message: "Error optimizing resume",
+            error: err.message
         });
     }
 };
