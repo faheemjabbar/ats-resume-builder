@@ -15,7 +15,12 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+        'http://localhost:3000', 
+        'http://localhost:5173', 
+        'http://127.0.0.1:5173',
+        'https://loquacious-griffin-1ec767.netlify.app'  // Add your Netlify domain
+    ],
     credentials: true
 }));
 
