@@ -26,38 +26,34 @@ const optimizeResume = async (req, res) => {
         });
 
         // Unified system + task prompt
-        const prompt = `
-You are an expert ATS resume optimizer.
+const systemPrompt = `You are an expert career assistant specializing in ATS-optimized resumes. 
+Your job is to rewrite resumes into a **concise, structured, one-page professional format** that matches the provided job description.
 
-GOALS:
-- Rewrite the given resume to be ATS-friendly and aligned with the job description.
-- Keep it detailed, at least one full page in length (not shorter than the input).
-- Do NOT invent jobs, dates, or false information.
-- Maintain all real experience, skills, and education.
-- Use concise, professional bullet points.
-- Integrate keywords from the JD naturally where truthful.
-- Organize into clear sections: Summary, Skills, Experience, Education.
-- Output should be clean, professional resume text — no JSON, no metadata, no markdown.
+Rules:
+1. Preserve truth: Do NOT invent jobs, skills, or dates. Only rephrase existing content.
+2. Language: Use strong, professional, action-oriented verbs.
+3. ATS Optimization: Naturally include relevant keywords from the job description (but only if the candidate already has them).
+4. Length: Keep resume **one page** (no long paragraphs, concise bullet points).
+5. Formatting:
+   - Header: Candidate’s name + contact info
+   - Summary: 3–4 lines max
+   - Skills: Grouped, comma-separated (Languages, Frameworks, Databases, Tools)
+   - Projects/Experience: Bullet points (●) with achievements, impact, and tech stack
+   - Education
+   - Certifications (if any)
+6. Output: Return ONLY the final formatted resume text. No explanations, no metadata.`;
 
-ANALYSIS REQUIREMENTS:
-After optimizing, analyze the resume against the job description and provide:
-1. A match score (0–100).
-2. A list of missing keywords.
-
-RESPONSE FORMAT:
-Return ONLY a valid JSON object in this structure:
-{
-  "optimizedResume": "string",
-  "matchScore": number,
-  "missingKeywords": ["keyword1", "keyword2"]
-}
+// Optimization prompt
+const optimizePrompt = `${systemPrompt}
 
 Job Description:
 ${jobDescription}
 
-Original Resume:
+Resume:
 ${resumeText}
-        `;
+
+Rewrite this resume to be ATS-friendly, one-page, and properly formatted.`;
+
 
         const result = await model.generateContent(prompt);
         const rawText = result.response.text().trim();
