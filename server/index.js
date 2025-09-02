@@ -19,7 +19,7 @@ app.use(cors({
         'http://localhost:3000', 
         'http://localhost:5173', 
         'http://127.0.0.1:5173',
-        'https://loquacious-griffin-1ec767.netlify.app'  // Add your Netlify domain
+        'https://loquacious-griffin-1ec767.netlify.app'
     ],
     credentials: true
 }));
@@ -27,20 +27,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Routes
+// Routes - Changed from '/api/resume' to '/resume'
 try {
     const resumeRoutes = require('./routes/resumeRoutes');
-    app.use('/api/resume', resumeRoutes);
+    app.use('/resume', resumeRoutes);  // Removed '/api' prefix
     console.log("Routes loaded successfully");
 } catch (err) {
     console.error("Error loading routes:", err);
 }
+
 app.get("/", (req, res) => {
   res.send("✅ ATS Resume Builder backend is running!");
 });
 
 // Health check route
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {  // Removed '/api' prefix
     res.json({ status: 'Server is running!', timestamp: new Date().toISOString() });
 });
 
@@ -53,6 +54,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/api/health`);
-    console.log(`Test route: http://localhost:${PORT}/api/resume/test`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`Test route: http://localhost:${PORT}/resume/test`);
 });
