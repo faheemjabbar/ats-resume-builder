@@ -30,6 +30,9 @@ try {
 } catch (err) {
     console.error("Error loading routes:", err);
 }
+app.get("/", (req, res) => {
+  res.send("✅ ATS Resume Builder backend is running!");
+});
 
 // Health check route
 app.get('/api/health', (req, res) => {
