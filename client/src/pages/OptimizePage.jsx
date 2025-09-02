@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import ReactQuill from 'react-quill';
+import api from "../services/api";
 import ReactMarkdown from 'react-markdown';
 import { 
   Zap, 

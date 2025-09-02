@@ -5,12 +5,11 @@ import { FileText } from "lucide-react";
 export default function Navbar() {
   const location = useLocation();
 
-  const handleLogoHover = () => {
-    // Only refresh if not already on homepage
+  const handleLogoClick = () => {
+    // Navigate to home and refresh
     if (location.pathname !== "/") {
       window.location.href = "/";
     } else {
-      // Force refresh even if already on homepage
       window.location.reload();
     }
   };
@@ -22,7 +21,7 @@ export default function Navbar() {
           {/* Logo Section */}
           <div
             className="flex items-center space-x-3 cursor-pointer"
-            onMouseEnter={handleLogoHover} // triggers on hover
+            onClick={handleLogoClick} // triggers on click
           >
             <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
               <FileText className="h-6 w-6 text-blue-200" />
