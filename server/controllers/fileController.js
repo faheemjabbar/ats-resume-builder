@@ -1,47 +1,44 @@
+// controllers/fileController.js
 const fs = require("fs");
+const path = require("path");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth");
 
-const uploadResume = async (req, res) => {
+// Handle resume upload & text extraction
+exports.uploadResume = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
     const filePath = req.file.path;
+    const ext = path.extname(req.file.originalname).toLowerCase();
     let textContent = "";
 
-    console.log("Processing file:", req.file.filename, "Type:", req.file.mimetype);
-
-    if (req.file.mimetype === "application/pdf") {
+    if (ext === ".pdf") {
+      // Extract text from PDF
       const dataBuffer = fs.readFileSync(filePath);
-      const pdfData = await pdfParse(dataBuffer);
-      textContent = pdfData.text;
-    } else if (
-      req.file.mimetype ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      req.file.mimetype === "application/msword"
-    ) {
-      const result = await mammoth.extractRawText({ path: filePath });
-      textContent = result.value;
+      const data = await pdfParse(dataBuffer);
+      textContent = data.text;
+    } else if (ext === ".docx") {
+      // Extract text from DOCX
+      const data = await mammoth.extractRawText({ path: filePath });
+      textContent = data.value;
     } else {
-      fs.unlinkSync(filePath); // Clean up file
+      // Unsupported format
+      fs.unlinkSync(filePath);
       return res.status(400).json({ message: "Unsupported file type" });
     }
 
-    // Clean up temp file
+    // Delete uploaded file after processing
     fs.unlinkSync(filePath);
 
-    console.log("Text extracted, length:", textContent.length);
-    return res.json({ textContent });
-  } catch (error) {
-    console.error("File processing error:", error);
-    // Clean up file if it exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    return res.status(500).json({ message: "Error reading file", error: error.message });
+    res.json({ textContent });
+  } catch (err) {
+    console.error("❌ Upload error:", err);
+    res.status(500).json({
+      message: "Error processing resume",
+      error: err.message,
+    });
   }
 };
-
-module.exports = { uploadResume };
