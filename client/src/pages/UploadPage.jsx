@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useState } from "react";
 import api from "../services/api";
 import { useNavigate } from "react-router-dom";
@@ -308,3 +309,6 @@ export default function UploadPage() {
         </div>
     );
 }
+=======
+{"code":"rate-limited","message":"You have hit the rate limit. Please upgrade to keep chatting.","providerLimitHit":false,"isRetryable":true}
+>>>>>>> e812d297c4f5905edfc6412caa4c1b235bf76b2e
