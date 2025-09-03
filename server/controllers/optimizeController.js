@@ -77,7 +77,7 @@ ${resumeText}
 Provide a JSON response with:
 1. matchScore: A number from 0-100 representing how well the resume matches the job requirements
 2. missingKeywords: An array of important keywords from the job description that are missing or underrepresented in the resume
-3. suggestions: An array of specific, actionable suggestions for improvement
+3. suggestions: An array of specific,short,relevant actionable suggestions for improvement at most 4 or 5 suggesstions.
 
 Respond with ONLY valid JSON in this format:
 {
