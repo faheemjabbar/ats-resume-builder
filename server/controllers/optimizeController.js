@@ -19,14 +19,25 @@ const optimizeResume = async (req, res) => {
 
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
         
-        // System prompt for resume optimization
-        const systemPrompt = `You are an assistant that rewrites resumes to be ATS-friendly.
-- Keep real experience, don't invent jobs/dates.
-- Use concise bullet points.
-- Include keywords from the JD only where truthful.
-- Return ONLY the optimized resume text. Do NOT include match score or missing keywords in the resume text.
-- The resume should be clean, professional text without any JSON or metadata.
-- Format the resume professionally with clear sections and proper spacing.`;
+        // Improved system prompt for resume optimization
+        const systemPrompt = `You are an expert resume writer and ATS specialist. Your task is to rewrite resumes to be ATS-friendly and tailored to job descriptions.
+
+INSTRUCTIONS:
+- Keep all real experience, don't invent jobs, dates, or qualifications
+- Use clear, professional formatting with proper section headers
+- Include relevant keywords from the job description only where truthful and appropriate
+- Use strong action verbs and quantified achievements where possible
+- Return ONLY the optimized resume text in plain text format
+- Use minimal markdown - only **bold** for names and section headers, and • for bullet points
+- Ensure proper spacing and clean formatting
+- Do NOT include match scores, analysis, or metadata in the resume text
+
+FORMAT:
+- Name (in **bold**)
+- Contact information
+- **SECTION HEADERS** (in all caps and bold)
+- Use bullet points (•) for lists
+- Keep consistent spacing between sections`;
         
         // First call: Get optimized resume
         const optimizePrompt = `${systemPrompt}
@@ -34,18 +45,28 @@ const optimizeResume = async (req, res) => {
 Job Description:
 ${jobDescription}
 
-Resume:
+Current Resume:
 ${resumeText}
 
-Rewrite this resume to be ATS-friendly and tailored to the job description.`;
+Please rewrite this resume to be ATS-friendly and tailored to the job description above.`;
         
         const optimizeResult = await model.generateContent(optimizePrompt);
-        const optimizedText = optimizeResult.response.text().trim();
+        let optimizedText = optimizeResult.response.text().trim();
+        
+        // Clean up the optimized text
+        optimizedText = optimizedText
+            // Remove any JSON artifacts or metadata
+            .replace(/^```.*$/gm, '')
+            .replace(/^`.*$/gm, '')
+            // Clean up excessive markdown
+            .replace(/\*\*\*+/g, '**')
+            .replace(/^\*\s*/gm, '• ')
+            // Ensure proper spacing
+            .replace(/\n\s*\n\s*\n/g, '\n\n')
+            .trim();
         
         // Second call: Get analysis
-        const analysisPrompt = `Analyze this resume against the job description and provide:
-1. A match score (0-100) based on how well the resume aligns with the job requirements
-2. Missing keywords that should be considered for inclusion
+        const analysisPrompt = `Analyze how well this resume matches the job description and provide analysis data.
 
 Job Description:
 ${jobDescription}
@@ -53,45 +74,62 @@ ${jobDescription}
 Resume:
 ${resumeText}
 
-Respond with ONLY a JSON object in this exact format: {"matchScore": number, "missingKeywords": ["keyword1", "keyword2"]}`;
+Provide a JSON response with:
+1. matchScore: A number from 0-100 representing how well the resume matches the job requirements
+2. missingKeywords: An array of important keywords from the job description that are missing or underrepresented in the resume
+3. suggestions: An array of specific, actionable suggestions for improvement
+
+Respond with ONLY valid JSON in this format:
+{
+  "matchScore": 85,
+  "missingKeywords": ["keyword1", "keyword2"],
+  "suggestions": ["suggestion1", "suggestion2"]
+}`;
         
         const analysisResult = await model.generateContent(analysisPrompt);
         const analysisText = analysisResult.response.text().trim();
         
-        let matchScore = null;
+        let matchScore = 75; // Default fallback
         let missingKeywords = [];
+        let suggestions = [];
         
         // Parse the analysis JSON
         try {
-            const analysis = JSON.parse(analysisText);
-            matchScore = analysis.matchScore ?? null;
-            missingKeywords = analysis.missingKeywords ?? [];
+            // Try to extract JSON from the response
+            const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const analysis = JSON.parse(jsonMatch[0]);
+                matchScore = analysis.matchScore ?? 75;
+                missingKeywords = Array.isArray(analysis.missingKeywords) ? analysis.missingKeywords : [];
+                suggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
+            } else {
+                // Fallback if no JSON found
+                console.log("No JSON found in analysis response:", analysisText);
+            }
         } catch (e) {
             console.error("Analysis JSON parse error:", e);
             console.log("Raw analysis response:", analysisText);
             
-            // Fallback: try to extract JSON from the response
-            const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try {
-                    const analysis = JSON.parse(jsonMatch[0]);
-                    matchScore = analysis.matchScore ?? null;
-                    missingKeywords = analysis.missingKeywords ?? [];
-                } catch (fallbackError) {
-                    console.error("Fallback JSON parse also failed:", fallbackError);
-                    // Set default values if parsing fails
-                    matchScore = 75;
-                    missingKeywords = ["Unable to analyze"];
-                }
-            }
+            // Set reasonable defaults
+            suggestions = [
+                "Add more specific technical skills mentioned in the job description",
+                "Include quantified achievements where possible",
+                "Consider adding relevant certifications or training"
+            ];
         }
 
-        console.log("Optimization complete - Match Score:", matchScore, "Missing Keywords:", missingKeywords.length);
+        // Ensure missingKeywords is limited and clean
+        missingKeywords = missingKeywords.slice(0, 8).filter(keyword => 
+            keyword && keyword.length > 1 && keyword.length < 30
+        );
+
+        console.log("Optimization complete - Match Score:", matchScore, "Missing Keywords:", missingKeywords.length, "Suggestions:", suggestions.length);
 
         return res.json({
             optimizedResume: optimizedText,
             missingKeywords,
-            matchScore
+            matchScore,
+            suggestions
         });
 
     } catch (err) {

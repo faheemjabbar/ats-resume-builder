@@ -11,7 +11,7 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
       name: 'Professional',
       description: 'Clean and modern design perfect for corporate roles',
       preview: {
-        headerBg: 'bg-blue-600',
+        headerBg: 'from-blue-600 to-blue-700',
         textColor: 'text-gray-800',
         accentColor: 'text-blue-600',
         layout: 'single-column'
@@ -22,7 +22,7 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
       name: 'Ivy League',
       description: 'Elegant academic style favored by top universities',
       preview: {
-        headerBg: 'bg-gray-800',
+        headerBg: 'from-gray-800 to-gray-900',
         textColor: 'text-gray-900',
         accentColor: 'text-gray-700',
         layout: 'traditional'
@@ -33,7 +33,7 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
       name: 'Modern Tech',
       description: 'Contemporary design ideal for tech and startup roles',
       preview: {
-        headerBg: 'bg-gradient-to-r from-purple-500 to-blue-500',
+        headerBg: 'from-purple-500 to-blue-500',
         textColor: 'text-gray-800',
         accentColor: 'text-purple-600',
         layout: 'two-column'
@@ -44,7 +44,7 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
       name: 'Creative Pro',
       description: 'Distinctive design for creative and marketing professionals',
       preview: {
-        headerBg: 'bg-gradient-to-r from-orange-400 to-pink-400',
+        headerBg: 'from-orange-400 to-pink-400',
         textColor: 'text-gray-800',
         accentColor: 'text-orange-600',
         layout: 'creative'
@@ -53,34 +53,51 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
   ];
 
   const TemplatePreview = ({ template }) => (
-    <div className="bg-white border-2 rounded-lg p-4 h-64 overflow-hidden relative">
+    <div className="bg-white border-2 rounded-lg overflow-hidden h-64 relative shadow-sm">
       {/* Header */}
-      <div className={`${template.preview.headerBg} rounded-lg p-3 mb-3`}>
-        <div className="text-white">
-          <div className="font-bold text-sm mb-1">JOHN SMITH</div>
-          <div className="text-xs opacity-90">Software Engineer</div>
-        </div>
+      <div className={`bg-gradient-to-r ${template.preview.headerBg} p-3 text-white`}>
+        <div className="font-bold text-sm mb-1">JOHN SMITH</div>
+        <div className="text-xs opacity-90">Software Engineer</div>
+        <div className="text-xs opacity-75 mt-1">john@email.com • (555) 123-4567</div>
       </div>
       
       {/* Content */}
-      <div className="space-y-2">
-        <div className={`${template.preview.accentColor} font-semibold text-xs`}>EXPERIENCE</div>
-        <div className={`${template.preview.textColor} text-xs space-y-1`}>
-          <div className="font-medium">Senior Developer</div>
-          <div className="text-gray-600">Tech Company • 2021-2023</div>
-          <div className="text-gray-500 text-xs">• Led development of web applications</div>
+      <div className="p-3 space-y-3">
+        <div>
+          <div className={`${template.preview.accentColor} font-semibold text-xs mb-1 border-b border-gray-200 pb-1`}>
+            EXPERIENCE
+          </div>
+          <div className={`${template.preview.textColor} space-y-1`}>
+            <div className="text-xs font-medium">Senior Developer</div>
+            <div className="text-xs text-gray-600">Tech Company • 2021-2023</div>
+            <div className="text-xs text-gray-500">• Led development team</div>
+            <div className="text-xs text-gray-500">• Improved performance by 30%</div>
+          </div>
         </div>
         
-        <div className={`${template.preview.accentColor} font-semibold text-xs mt-3`}>EDUCATION</div>
-        <div className={`${template.preview.textColor} text-xs`}>
-          <div className="font-medium">BS Computer Science</div>
-          <div className="text-gray-600">University • 2019</div>
+        <div>
+          <div className={`${template.preview.accentColor} font-semibold text-xs mb-1 border-b border-gray-200 pb-1`}>
+            EDUCATION
+          </div>
+          <div className={`${template.preview.textColor}`}>
+            <div className="text-xs font-medium">BS Computer Science</div>
+            <div className="text-xs text-gray-600">University • 2019</div>
+          </div>
+        </div>
+
+        <div>
+          <div className={`${template.preview.accentColor} font-semibold text-xs mb-1 border-b border-gray-200 pb-1`}>
+            SKILLS
+          </div>
+          <div className="text-xs text-gray-600">
+            JavaScript, React, Node.js, Python
+          </div>
         </div>
       </div>
       
       {/* Layout indicator */}
       <div className="absolute bottom-2 right-2">
-        <div className={`text-xs px-2 py-1 rounded ${template.preview.headerBg} text-white opacity-75`}>
+        <div className={`text-xs px-2 py-1 rounded bg-gradient-to-r ${template.preview.headerBg} text-white opacity-75`}>
           {template.preview.layout}
         </div>
       </div>
@@ -105,8 +122,8 @@ const ResumeTemplates = ({ onTemplateSelect, selectedTemplate }) => {
             key={template.id}
             className={`relative group cursor-pointer transition-all duration-200 ${
               selectedTemplate === template.id
-                ? 'ring-2 ring-purple-500 ring-offset-2'
-                : 'hover:shadow-lg'
+                ? 'ring-2 ring-purple-500 ring-offset-2 transform scale-105'
+                : 'hover:shadow-lg hover:scale-102'
             }`}
             onClick={() => onTemplateSelect(template.id)}
           >
