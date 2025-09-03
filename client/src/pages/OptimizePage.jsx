@@ -23,7 +23,13 @@ import {
   Eye,
   Edit3,
   Save,
-  X
+  X,
+  FileDown,
+  Printer,
+  Share2,
+  Star,
+  ThumbsUp,
+  Sparkles
 } from "lucide-react";
 
 export default function OptimizePage() {
@@ -47,6 +53,8 @@ export default function OptimizePage() {
   const [selectedTemplate, setSelectedTemplate] = useState('professional');
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showResumePreview, setShowResumePreview] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
 
   const jakeResumeSample = `JAKE RYAN
 123-456-7890 | jake.ryan@email.com | linkedin.com/in/jakeryan | github.com/jakeryan
@@ -107,6 +115,38 @@ Responsibilities:
 • Optimize application performance
 • Write comprehensive documentation`;
 
+  // Sample AI suggestions
+  const sampleAiSuggestions = [
+    {
+      type: 'keyword',
+      title: 'Add Missing Keywords',
+      description: 'Include "Agile methodology" and "microservices" in your experience descriptions',
+      priority: 'high',
+      icon: Target
+    },
+    {
+      type: 'achievement',
+      title: 'Quantify Achievements',
+      description: 'Add specific metrics to your project outcomes (e.g., "increased efficiency by 30%")',
+      priority: 'medium',
+      icon: TrendingUp
+    },
+    {
+      type: 'format',
+      title: 'Improve Formatting',
+      description: 'Use consistent bullet points and ensure proper spacing between sections',
+      priority: 'low',
+      icon: FileText
+    },
+    {
+      type: 'skills',
+      title: 'Technical Skills Enhancement',
+      description: 'Consider adding cloud platforms (AWS, Azure) to your technical skills section',
+      priority: 'medium',
+      icon: Sparkles
+    }
+  ];
+
   // Initialize component
   useEffect(() => {
     if (resumeText && resumeText.length < 500) {
@@ -119,6 +159,7 @@ Responsibilities:
       setEditableContent(location.state.optimizedResume);
       setActiveTab('result');
       setResult(location.state.result || {});
+      setAiSuggestions(sampleAiSuggestions);
     }
   }, [resumeText, location.state]);
 
@@ -259,6 +300,10 @@ Responsibilities:
       
       // Show template selection after optimization
       setShowTemplateSelection(true);
+      
+      // Set AI suggestions
+      setAiSuggestions(sampleAiSuggestions);
+      
     } catch (err) {
       console.error("Optimization failed:", err);
       setError(err.response?.data?.message || "Optimization failed. Please try again.");
@@ -294,15 +339,40 @@ Responsibilities:
     }
   };
 
-  const downloadResume = () => {
+  const downloadResume = (format = 'txt') => {
     const element = document.createElement("a");
     const contentToDownload = viewMode === 'editor' ? editableContent : optimizedResume;
     const file = new Blob([contentToDownload], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `optimized-resume-${new Date().toISOString().split('T')[0]}.txt`;
+    element.download = `optimized-resume-${selectedTemplate}-${new Date().toISOString().split('T')[0]}.${format}`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+  };
+
+  const printResume = () => {
+    const printWindow = window.open('', '_blank');
+    const contentToPrint = formatResumeWithTemplate(optimizedResume, selectedTemplate);
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Resume - ${selectedTemplate}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+            @media print { body { margin: 0; } }
+          </style>
+        </head>
+        <body>
+          <div id="resume-content"></div>
+          <script>
+            document.getElementById('resume-content').innerHTML = \`${contentToPrint?.props?.children || optimizedResume}\`;
+            window.print();
+            window.close();
+          </script>
+        </body>
+      </html>
+    `);
   };
 
   const getScoreColor = (score) => {
@@ -315,6 +385,15 @@ Responsibilities:
     if (score >= 80) return <CheckCircle className="h-5 w-5" />;
     if (score >= 60) return <Target className="h-5 w-5" />;
     return <AlertTriangle className="h-5 w-5" />;
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'bg-red-100 text-red-800 border-red-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   const useSampleResume = () => {
@@ -332,6 +411,7 @@ Responsibilities:
       missingKeywords: ['Docker', 'Microservices', 'Agile'],
       suggestions: ['Add more specific technical achievements', 'Include quantified results']
     });
+    setAiSuggestions(sampleAiSuggestions);
   };
 
   const useSampleJobDescription = () => {
@@ -620,157 +700,241 @@ We are looking for a Software Engineer with experience in:
                     />
                   )}
 
-                  {/* Optimized Resume */}
-                  <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-500 to-teal-600 p-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-white flex items-center">
-                          <Zap className="h-5 w-5 mr-2" />
-                          Optimized Resume
-                          {hasUnsavedChanges && (
-                            <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full">
-                              Unsaved changes
-                            </span>
+                  {/* Main Content Grid */}
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    {/* Left Column - Resume Editor/Preview */}
+                    <div className="lg:col-span-2">
+                      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+                        <div className="bg-gradient-to-r from-green-500 to-teal-600 p-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-white flex items-center">
+                              <Zap className="h-5 w-5 mr-2" />
+                              Optimized Resume
+                              {hasUnsavedChanges && (
+                                <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full">
+                                  Unsaved changes
+                                </span>
+                              )}
+                            </h3>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={copyToClipboard}
+                                className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                                  copied
+                                    ? 'bg-green-200 text-green-800'
+                                    : 'bg-white/20 text-white hover:bg-white/30'
+                                }`}
+                              >
+                                {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                <span>{copied ? 'Copied!' : 'Copy'}</span>
+                              </button>
+                              <button
+                                onClick={() => setShowResumePreview(true)}
+                                className="flex items-center space-x-2 bg-white/20 text-white hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span>View Resume</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="p-6">
+                          {/* View Options */}
+                          <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center space-x-4">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Your optimized resume:
+                              </label>
+                              {viewMode === 'formatted' && (
+                                <button
+                                  onClick={() => setShowTemplateSelection(!showTemplateSelection)}
+                                  className="flex items-center space-x-1 text-xs text-purple-600 hover:text-purple-700"
+                                >
+                                  <Palette className="h-3 w-3" />
+                                  <span>Change Template</span>
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              {/* Save/Discard buttons for editor mode */}
+                              {viewMode === 'editor' && hasUnsavedChanges && (
+                                <>
+                                  <button
+                                    onClick={handleSaveChanges}
+                                    className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                                  >
+                                    <Save className="h-3 w-3" />
+                                    <span>Save</span>
+                                  </button>
+                                  <button
+                                    onClick={handleDiscardChanges}
+                                    className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                                  >
+                                    <X className="h-3 w-3" />
+                                    <span>Discard</span>
+                                  </button>
+                                </>
+                              )}
+                              
+                               {/* View mode toggle */}
+                              <button
+                                onClick={() => handleViewModeChange('formatted')}
+                                className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                  viewMode === 'formatted'
+                                    ? 'bg-blue-100 text-blue-700 font-medium'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Preview</span>
+                              </button>
+                              <button
+                                onClick={() => handleViewModeChange('editor')}
+                                className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                                  viewMode === 'editor'
+                                    ? 'bg-blue-100 text-blue-700 font-medium'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                <Edit3 className="h-3 w-3" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {viewMode === 'formatted' ? (
+                            /* Formatted Resume Display */
+                            <div className="bg-white border rounded-lg p-8 shadow-inner max-h-[600px] overflow-y-auto">
+                              {formatResumeContent(optimizedResume)}
+                            </div>
+                          ) : (
+                            /* Simple Textarea Editor */
+                            <div className="border rounded-lg overflow-hidden bg-white">
+                              <div className="bg-gray-50 border-b px-4 py-2 text-xs text-gray-600">
+                                Edit your resume content below. Changes will be highlighted until saved.
+                              </div>
+                              <textarea
+                                value={editableContent}
+                                onChange={(e) => setEditableContent(e.target.value)}
+                                className="w-full h-[500px] p-4 border-0 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
+                                placeholder="Your optimized resume will appear here for editing..."
+                              />
+                              <div className="bg-gray-50 border-t px-4 py-2 flex justify-between items-center text-xs text-gray-600">
+                                <span>
+                                  Characters: {editableContent.length} • Words: {editableContent.split(/\s+/).filter(word => word.length > 0).length}
+                                </span>
+                                {hasUnsavedChanges && (
+                                  <span className="text-orange-600 font-medium">
+                                    Unsaved changes
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           )}
-                        </h3>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={copyToClipboard}
-                            className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                              copied
-                                ? 'bg-green-200 text-green-800'
-                                : 'bg-white/20 text-white hover:bg-white/30'
-                            }`}
-                          >
-                            {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                            <span>{copied ? 'Copied!' : 'Copy'}</span>
-                          </button>
-                          <button
-                            onClick={downloadResume}
-                            className="flex items-center space-x-2 bg-white/20 text-white hover:bg-white/30 px-3 py-1.5 rounded-lg text-sm transition-colors"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span>Download</span>
-                          </button>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="p-6">
-                      {/* View Options */}
-                      <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center space-x-4">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Your optimized resume:
-                          </label>
-                          {viewMode === 'formatted' && (
-                            <button
-                              onClick={() => setShowTemplateSelection(!showTemplateSelection)}
-                              className="flex items-center space-x-1 text-xs text-purple-600 hover:text-purple-700"
-                            >
-                              <Palette className="h-3 w-3" />
-                              <span>Change Template</span>
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          {/* Save/Discard buttons for editor mode */}
-                          {viewMode === 'editor' && hasUnsavedChanges && (
-                            <>
-                              <button
-                                onClick={handleSaveChanges}
-                                className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
-                              >
-                                <Save className="h-3 w-3" />
-                                <span>Save</span>
-                              </button>
-                              <button
-                                onClick={handleDiscardChanges}
-                                className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
-                              >
-                                <X className="h-3 w-3" />
-                                <span>Discard</span>
-                              </button>
-                            </>
-                          )}
-                          
-                           {/* View mode toggle */}
-                          <button
-                            onClick={() => handleViewModeChange('formatted')}
-                            className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                              viewMode === 'formatted'
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            <Eye className="h-3 w-3" />
-                            <span>Preview</span>
-                          </button>
-                          <button
-                            onClick={() => handleViewModeChange('editor')}
-                            className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                              viewMode === 'editor'
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            <Edit3 className="h-3 w-3" />
-                            <span>Edit</span>
-                          </button>
-                        </div>
-                      </div>
 
-                      {viewMode === 'formatted' ? (
-                        /* Formatted Resume Display */
-                        <div className="bg-white border rounded-lg p-8 shadow-inner max-h-[600px] overflow-y-auto">
-                          {formatResumeContent(optimizedResume)}
-                        </div>
-                      ) : (
-                        /* Simple Textarea Editor */
-                        <div className="border rounded-lg overflow-hidden bg-white">
-                          <div className="bg-gray-50 border-b px-4 py-2 text-xs text-gray-600">
-                            Edit your resume content below. Changes will be highlighted until saved.
+                    {/* Right Column - AI Suggestions */}
+                    <div className="space-y-6">
+                      {/* AI Suggestions */}
+                      {aiSuggestions.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-xl p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
+                              AI Suggestions
+                            </h3>
+                            <div className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full font-medium">
+                              {aiSuggestions.length} tips
+                            </div>
                           </div>
-                          <textarea
-                            value={editableContent}
-                            onChange={(e) => setEditableContent(e.target.value)}
-                            className="w-full h-[500px] p-4 border-0 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
-                            placeholder="Your optimized resume will appear here for editing..."
-                          />
-                          <div className="bg-gray-50 border-t px-4 py-2 flex justify-between items-center text-xs text-gray-600">
-                            <span>
-                              Characters: {editableContent.length} • Words: {editableContent.split(/\s+/).filter(word => word.length > 0).length}
-                            </span>
-                            {hasUnsavedChanges && (
-                              <span className="text-orange-600 font-medium">
-                                Unsaved changes
-                              </span>
-                            )}
+                          <div className="space-y-3">
+                            {aiSuggestions.map((suggestion, index) => {
+                              const IconComponent = suggestion.icon;
+                              return (
+                                <div key={index} className={`border rounded-lg p-4 ${getPriorityColor(suggestion.priority)}`}>
+                                  <div className="flex items-start space-x-3">
+                                    <div className="bg-white/50 p-2 rounded-lg">
+                                      <IconComponent className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex-1">
+                                      <h4 className="font-medium text-sm mb-1">{suggestion.title}</h4>
+                                      <p className="text-xs opacity-90">{suggestion.description}</p>
+                                      <div className="mt-2">
+                                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                          suggestion.priority === 'high' ? 'bg-red-200 text-red-800' :
+                                          suggestion.priority === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                                          'bg-green-200 text-green-800'
+                                        }`}>
+                                          {suggestion.priority} priority
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
+
+                      {/* Quick Actions */}
+                      <div className="bg-white rounded-2xl shadow-xl p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <FileDown className="h-5 w-5 mr-2 text-blue-600" />
+                          Quick Actions
+                        </h3>
+                        <div className="space-y-3">
+                          <button
+                            onClick={() => setShowResumePreview(true)}
+                            className="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span>View Your Resume</span>
+                          </button>
+                          <button
+                            onClick={() => downloadResume('txt')}
+                            className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            <span>Download as Text</span>
+                          </button>
+                          <button
+                            onClick={printResume}
+                            className="w-full flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            <Printer className="h-4 w-4" />
+                            <span>Print Resume</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Template Info */}
+                      <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-100">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Palette className="h-5 w-5 text-purple-600" />
+                          <h4 className="font-semibold text-gray-900">Current Template</h4>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border">
+                          <p className="font-medium text-gray-900 capitalize">{selectedTemplate.replace('-', ' ')}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {selectedTemplate === 'professional' && 'Clean and modern design perfect for corporate roles'}
+                            {selectedTemplate === 'ivy-league' && 'Elegant academic style favored by top universities'}
+                            {selectedTemplate === 'modern-tech' && 'Contemporary design ideal for tech and startup roles'}
+                            {selectedTemplate === 'creative' && 'Distinctive design for creative and marketing professionals'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowTemplateSelection(!showTemplateSelection)}
+                          className="w-full mt-3 text-purple-600 hover:text-purple-700 text-sm font-medium"
+                        >
+                          Change Template
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Additional Suggestions */}
-                  {result.suggestions && result.suggestions.length > 0 && (
-                    <div className="bg-white rounded-2xl shadow-xl p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">AI Suggestions</h3>
-                        <Lightbulb className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <div className="space-y-3">
-                        {result.suggestions.map((suggestion, index) => (
-                          <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
-                            <div className="bg-blue-100 p-1.5 rounded-full">
-                              <Lightbulb className="h-3 w-3 text-blue-600" />
-                            </div>
-                            <p className="text-sm text-blue-800 flex-1">{suggestion}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
 
@@ -793,6 +957,100 @@ We are looking for a Software Engineer with experience in:
                   </button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Resume Preview Modal */}
+          {showResumePreview && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+                {/* Modal Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold flex items-center">
+                        <Eye className="h-6 w-6 mr-2" />
+                        Resume Preview
+                      </h3>
+                      <p className="text-blue-100 text-sm mt-1">
+                        {selectedTemplate.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Template
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      {/* Template Selector */}
+                      <select
+                        value={selectedTemplate}
+                        onChange={(e) => setSelectedTemplate(e.target.value)}
+                        className="bg-white/20 text-white border border-white/30 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/50"
+                      >
+                        <option value="professional" className="text-gray-900">Professional</option>
+                        <option value="ivy-league" className="text-gray-900">Ivy League</option>
+                        <option value="modern-tech" className="text-gray-900">Modern Tech</option>
+                        <option value="creative" className="text-gray-900">Creative</option>
+                      </select>
+                      
+                      {/* Action Buttons */}
+                      <button
+                        onClick={() => downloadResume('txt')}
+                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center space-x-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>Download</span>
+                      </button>
+                      <button
+                        onClick={printResume}
+                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg text-sm transition-colors flex items-center space-x-2"
+                      >
+                        <Printer className="h-4 w-4" />
+                        <span>Print</span>
+                      </button>
+                      <button
+                        onClick={() => setShowResumePreview(false)}
+                        className="bg-white/20 hover:bg-white/30 text-white p-2 rounded-lg transition-colors"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Content */}
+                <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    {formatResumeContent(optimizedResume)}
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="bg-gray-50 border-t p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <span>Template: {selectedTemplate.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                      <span>•</span>
+                      <span>Words: {optimizedResume.split(/\s+/).filter(word => word.length > 0).length}</span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={copyToClipboard}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm transition-colors ${
+                          copied
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                      >
+                        {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        <span>{copied ? 'Copied!' : 'Copy Text'}</span>
+                      </button>
+                      <button
+                        onClick={() => setShowResumePreview(false)}
+                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                      >
+                        Close Preview
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

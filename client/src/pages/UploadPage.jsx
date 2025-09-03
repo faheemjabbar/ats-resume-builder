@@ -74,15 +74,21 @@ export default function UploadPage() {
             const formData = new FormData();
             formData.append("resume", file);
 
-            const res = await api.post("/resume/upload", formData, {
+            // Add compression and optimization
+            const config = {
                 headers: { "Content-Type": "multipart/form-data" },
+                timeout: 60000, // 60 seconds for file upload
                 onUploadProgress: (progressEvent) => {
                     const percentCompleted = Math.round(
                         (progressEvent.loaded * 100) / progressEvent.total
                     );
                     setUploadProgress(percentCompleted);
                 },
-            });
+            };
+
+            console.log('Starting upload for file:', file.name, 'Size:', formatFileSize(file.size));
+            
+            const res = await api.post("/resume/upload", formData, config);
 
             const extractedText = res.data.textContent;
 
@@ -91,18 +97,25 @@ export default function UploadPage() {
                 return;
             }
 
+            console.log('Upload successful, extracted text length:', extractedText.length);
+
             // Navigate to optimize page
             navigate("/optimize", { state: { resumeText: extractedText } });
             
         } catch (err) {
             console.error("Upload error:", err);
             
-            if (err.response) {
-                setError(`Upload failed: ${err.response.data.message || err.response.statusText}`);
-            } else if (err.request) {
-                setError("Cannot connect to server. Please check your connection and try again.");
+            // Use enhanced error handling
+            if (err.userMessage) {
+                setError(err.userMessage);
+            } else if (err.response?.data?.message) {
+                setError(`Upload failed: ${err.response.data.message}`);
+            } else if (err.code === 'ECONNABORTED') {
+                setError("Upload timed out. Please try with a smaller file or check your connection.");
+            } else if (!err.response) {
+                setError("Cannot connect to server. Please check if the server is running and try again.");
             } else {
-                setError(`Upload failed: ${err.message}`);
+                setError("Upload failed. Please try again or contact support if the problem persists.");
             }
         } finally {
             setLoading(false);
