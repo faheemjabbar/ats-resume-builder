@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import ReactQuill from 'react-quill';
 import api from "../services/api";
 import ReactMarkdown from 'react-markdown';
+import ResumeTemplates from "../components/ResumeTemplates";
+import { formatResumeWithTemplate } from "../utils/templateFormatter";
 import { 
   Zap, 
   FileText, 
@@ -15,22 +17,36 @@ import {
   Loader2,
   Lightbulb,
   User,
-  ArrowLeft
+  ArrowLeft,
+  Palette,
+  RefreshCw,
+  Eye,
+  Edit3,
+  Save,
+  X
 } from "lucide-react";
 
 export default function OptimizePage() {
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // Core state
   const [resumeText] = useState(location.state?.resumeText || "");
   const [jobDescription, setJobDescription] = useState("");
   const [optimizedResume, setOptimizedResume] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  
+  // UI state
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('input');
   const [viewMode, setViewMode] = useState('formatted');
   const [showSampleSuggestion, setShowSampleSuggestion] = useState(false);
   const [editableContent, setEditableContent] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState('professional');
+  const [showTemplateSelection, setShowTemplateSelection] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const jakeResumeSample = `JAKE RYAN
 123-456-7890 | jake.ryan@email.com | linkedin.com/in/jakeryan | github.com/jakeryan
@@ -64,11 +80,56 @@ Programming Languages: JavaScript, Python, Java, Go, SQL
 Frameworks/Libraries: React, Node.js, Express, React Native
 Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
 
+  const sampleJobDescription = `Software Engineer - Full Stack Developer
+
+We are seeking a talented Software Engineer to join our dynamic team. The ideal candidate will have experience in both front-end and back-end development.
+
+Key Requirements:
+• Bachelor's degree in Computer Science or related field
+• 2+ years of experience in full-stack development
+• Proficiency in JavaScript, React, Node.js
+• Experience with databases (MongoDB, PostgreSQL)
+• Knowledge of cloud platforms (AWS, Azure)
+• Understanding of Agile development methodologies
+• Strong problem-solving and communication skills
+
+Preferred Qualifications:
+• Experience with Docker and containerization
+• Knowledge of microservices architecture
+• Previous internship experience at tech companies
+• Open source contributions
+• Experience with mobile development (React Native)
+
+Responsibilities:
+• Develop and maintain web applications
+• Collaborate with cross-functional teams
+• Participate in code reviews and technical discussions
+• Optimize application performance
+• Write comprehensive documentation`;
+
+  // Initialize component
   useEffect(() => {
     if (resumeText && resumeText.length < 500) {
       setShowSampleSuggestion(true);
     }
-  }, [resumeText]);
+    
+    // Check if user came from a previous optimization
+    if (location.state?.optimizedResume) {
+      setOptimizedResume(location.state.optimizedResume);
+      setEditableContent(location.state.optimizedResume);
+      setActiveTab('result');
+      setResult(location.state.result || {});
+    }
+  }, [resumeText, location.state]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (viewMode === 'editor' && editableContent !== optimizedResume) {
+      setHasUnsavedChanges(true);
+    } else {
+      setHasUnsavedChanges(false);
+    }
+  }, [editableContent, optimizedResume, viewMode]);
 
   const quillModules = {
     toolbar: [
@@ -81,9 +142,27 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
 
   const formatResumeContent = (content) => {
     if (!content) return null;
+    
+    // If template is selected and we're in formatted mode, use template
+    if (selectedTemplate && viewMode === 'formatted') {
+      return formatResumeWithTemplate(content, selectedTemplate);
+    }
+    
+    // Otherwise, show markdown
     return (
-      <div className="prose prose-sm text-gray-800">
-        <ReactMarkdown>{content}</ReactMarkdown>
+      <div className="prose prose-sm max-w-none text-gray-800">
+        <ReactMarkdown 
+          components={{
+            h1: ({children}) => <h1 className="text-2xl font-bold mb-4 text-gray-900">{children}</h1>,
+            h2: ({children}) => <h2 className="text-xl font-semibold mb-3 text-gray-800 border-b border-gray-200 pb-1">{children}</h2>,
+            h3: ({children}) => <h3 className="text-lg font-medium mb-2 text-gray-700">{children}</h3>,
+            p: ({children}) => <p className="mb-2 text-gray-700 leading-relaxed">{children}</p>,
+            ul: ({children}) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+            li: ({children}) => <li className="text-gray-700">{children}</li>,
+          }}
+        >
+          {content}
+        </ReactMarkdown>
       </div>
     );
   };
@@ -96,27 +175,65 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
   };
 
   const handleViewModeChange = (mode) => {
+    if (hasUnsavedChanges && mode === 'formatted') {
+      if (window.confirm('You have unsaved changes. Save them before switching views?')) {
+        handleSaveChanges();
+      }
+    }
+
     if (mode === 'editor' && viewMode === 'formatted') {
       const plainText = htmlToPlainText(optimizedResume);
       setEditableContent(plainText);
     } else if (mode === 'formatted' && viewMode === 'editor') {
-      setOptimizedResume(editableContent);
+      // Don't automatically save, let user decide
     }
     setViewMode(mode);
   };
 
+  const handleSaveChanges = () => {
+    setOptimizedResume(editableContent);
+    setHasUnsavedChanges(false);
+  };
+
+  const handleDiscardChanges = () => {
+    setEditableContent(optimizedResume);
+    setHasUnsavedChanges(false);
+  };
+
   const handleBack = () => {
-    navigate('/');
+    if (hasUnsavedChanges) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        navigate('/');
+      }
+    } else {
+      navigate('/');
+    }
+  };
+
+  const validateInputs = () => {
+    if (!resumeText.trim()) {
+      setError("Please upload a resume first");
+      return false;
+    }
+    if (!jobDescription.trim()) {
+      setError("Please provide a job description");
+      return false;
+    }
+    if (jobDescription.length < 50) {
+      setError("Job description seems too short. Please provide a more detailed description.");
+      return false;
+    }
+    setError("");
+    return true;
   };
 
   const handleOptimize = async () => {
-    if (!resumeText || !jobDescription) {
-      // Replaced alert() with a custom message box
-      console.error("Please provide both resume text and job description");
+    if (!validateInputs()) {
       return;
     }
 
     setLoading(true);
+    setError("");
     setActiveTab('result');
     
     try {
@@ -139,12 +256,21 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
       
       setOptimizedResume(resumeContent);
       setEditableContent(resumeContent);
+      
+      // Show template selection after optimization
+      setShowTemplateSelection(true);
     } catch (err) {
       console.error("Optimization failed:", err);
-      // Replaced alert() with a custom message box
-      console.error("Optimization failed. Please try again.");
+      setError(err.response?.data?.message || "Optimization failed. Please try again.");
+      setActiveTab('input'); // Go back to input tab on error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReOptimize = async () => {
+    if (window.confirm('This will replace your current optimized resume. Continue?')) {
+      await handleOptimize();
     }
   };
 
@@ -156,7 +282,15 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
-      document.execCommand('copy'); // Fallback for clipboard functionality
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = viewMode === 'editor' ? editableContent : optimizedResume;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -165,7 +299,7 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
     const contentToDownload = viewMode === 'editor' ? editableContent : optimizedResume;
     const file = new Blob([contentToDownload], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = "optimized-resume.txt";
+    element.download = `optimized-resume-${new Date().toISOString().split('T')[0]}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -189,6 +323,19 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
     setShowSampleSuggestion(false);
     setActiveTab('result');
     setViewMode('formatted');
+    setShowTemplateSelection(true);
+    // Set sample job description for better demo
+    setJobDescription(sampleJobDescription);
+    // Create mock result for demo
+    setResult({
+      matchScore: 85,
+      missingKeywords: ['Docker', 'Microservices', 'Agile'],
+      suggestions: ['Add more specific technical achievements', 'Include quantified results']
+    });
+  };
+
+  const useSampleJobDescription = () => {
+    setJobDescription(sampleJobDescription);
   };
 
   return (
@@ -198,7 +345,7 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
           {/* Back Button */}
           <button 
             onClick={handleBack} 
-            className="mb-4 text-gray-600 hover:text-gray-900 flex items-center space-x-2"
+            className="mb-4 text-gray-600 hover:text-gray-900 flex items-center space-x-2 transition-colors"
           >
               <ArrowLeft className="h-5 w-5" />
               <span>Back to Homepage</span>
@@ -213,6 +360,16 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
               Transform your resume with AI-powered optimization for maximum ATS compatibility
             </p>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <p className="text-red-700 font-medium">{error}</p>
+              </div>
+            </div>
+          )}
 
           {/* Sample Suggestion Banner */}
           {showSampleSuggestion && (
@@ -286,24 +443,43 @@ Tools & Technologies: Git, Docker, AWS, Firebase, MongoDB, PostgreSQL`;
                   </h3>
                 </div>
                 <div className="p-6">
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
-                      {resumeText || "No resume content available. Please upload a resume first."}
-                    </pre>
-                  </div>
-                  <div className="mt-4 text-sm text-gray-500">
-                    Character count: {resumeText.length} • Word count: {resumeText.split(' ').length}
-                  </div>
+                  {resumeText ? (
+                    <>
+                      <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <pre className="whitespace-pre-wrap text-sm text-gray-700 font-mono">
+                          {resumeText}
+                        </pre>
+                      </div>
+                      <div className="mt-4 flex justify-between items-center text-sm text-gray-500">
+                        <span>Character count: {resumeText.length}</span>
+                        <span>Word count: {resumeText.split(/\s+/).filter(word => word.length > 0).length}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No resume content available.</p>
+                      <p className="text-sm text-gray-400 mt-2">Please upload a resume first.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Job Description Input */}
               <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-4">
-                  <h3 className="text-lg font-semibold text-white flex items-center">
-                    <Target className="h-5 w-5 mr-2" />
-                    Job Description
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-white flex items-center">
+                      <Target className="h-5 w-5 mr-2" />
+                      Job Description
+                    </h3>
+                    <button
+                      onClick={useSampleJobDescription}
+                      className="text-xs text-white/80 hover:text-white bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
+                    >
+                      Use Sample
+                    </button>
+                  </div>
                 </div>
                 <div className="p-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -326,29 +502,41 @@ We are looking for a Software Engineer with experience in:
                   />
                   <div className="mt-4 flex justify-between items-center">
                     <div className="text-sm text-gray-500">
-                      Character count: {jobDescription.length}
+                      Characters: {jobDescription.length} • Words: {jobDescription.split(/\s+/).filter(word => word.length > 0).length}
                     </div>
-                    <button
-                      onClick={handleOptimize}
-                      disabled={loading || !resumeText || !jobDescription}
-                      className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                        loading || !resumeText || !jobDescription
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                      } text-white`}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Optimizing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-4 w-4" />
-                          <span>Optimize Resume</span>
-                        </>
+                    <div className="flex space-x-2">
+                      {result && (
+                        <button
+                          onClick={handleReOptimize}
+                          disabled={loading || !resumeText || !jobDescription}
+                          className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          <span>Re-optimize</span>
+                        </button>
                       )}
-                    </button>
+                      <button
+                        onClick={handleOptimize}
+                        disabled={loading || !resumeText || !jobDescription}
+                        className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                          loading || !resumeText || !jobDescription
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                        } text-white`}
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Optimizing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4" />
+                            <span>Optimize Resume</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -411,6 +599,11 @@ We are looking for a Software Engineer with experience in:
                                 </span>
                               ))}
                             </div>
+                            {result.missingKeywords.length > 6 && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                +{result.missingKeywords.length - 6} more keywords
+                              </p>
+                            )}
                           </>
                         ) : (
                           <p className="text-green-600 text-sm">✓ All key terms included!</p>
@@ -419,6 +612,14 @@ We are looking for a Software Engineer with experience in:
                     </div>
                   </div>
 
+                  {/* Template Selection */}
+                  {showTemplateSelection && (
+                    <ResumeTemplates 
+                      selectedTemplate={selectedTemplate}
+                      onTemplateSelect={setSelectedTemplate}
+                    />
+                  )}
+
                   {/* Optimized Resume */}
                   <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                     <div className="bg-gradient-to-r from-green-500 to-teal-600 p-4">
@@ -426,6 +627,11 @@ We are looking for a Software Engineer with experience in:
                         <h3 className="text-lg font-semibold text-white flex items-center">
                           <Zap className="h-5 w-5 mr-2" />
                           Optimized Resume
+                          {hasUnsavedChanges && (
+                            <span className="ml-2 text-xs bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full">
+                              Unsaved changes
+                            </span>
+                          )}
                         </h3>
                         <div className="flex space-x-2">
                           <button
@@ -453,29 +659,63 @@ We are looking for a Software Engineer with experience in:
                     <div className="p-6">
                       {/* View Options */}
                       <div className="flex items-center justify-between mb-6">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Your optimized resume:
-                        </label>
-                        <div className="flex space-x-2">
+                        <div className="flex items-center space-x-4">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Your optimized resume:
+                          </label>
+                          {viewMode === 'formatted' && (
+                            <button
+                              onClick={() => setShowTemplateSelection(!showTemplateSelection)}
+                              className="flex items-center space-x-1 text-xs text-purple-600 hover:text-purple-700"
+                            >
+                              <Palette className="h-3 w-3" />
+                              <span>Change Template</span>
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {/* Save/Discard buttons for editor mode */}
+                          {viewMode === 'editor' && hasUnsavedChanges && (
+                            <>
+                              <button
+                                onClick={handleSaveChanges}
+                                className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                              >
+                                <Save className="h-3 w-3" />
+                                <span>Save</span>
+                              </button>
+                              <button
+                                onClick={handleDiscardChanges}
+                                className="flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                                <span>Discard</span>
+                              </button>
+                            </>
+                          )}
+                          
+                           {/* View mode toggle */}
                           <button
                             onClick={() => handleViewModeChange('formatted')}
-                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                            className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
                               viewMode === 'formatted'
                                 ? 'bg-blue-100 text-blue-700 font-medium'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                           >
-                            Formatted View
+                            <Eye className="h-3 w-3" />
+                            <span>Preview</span>
                           </button>
                           <button
                             onClick={() => handleViewModeChange('editor')}
-                            className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                            className={`flex items-center space-x-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${
                               viewMode === 'editor'
                                 ? 'bg-blue-100 text-blue-700 font-medium'
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                           >
-                            Edit Mode
+                            <Edit3 className="h-3 w-3" />
+                            <span>Edit</span>
                           </button>
                         </div>
                       </div>
@@ -486,18 +726,51 @@ We are looking for a Software Engineer with experience in:
                           {formatResumeContent(optimizedResume)}
                         </div>
                       ) : (
-                        /* Simple Textarea Editor instead of ReactQuill */
+                        /* Simple Textarea Editor */
                         <div className="border rounded-lg overflow-hidden bg-white">
+                          <div className="bg-gray-50 border-b px-4 py-2 text-xs text-gray-600">
+                            Edit your resume content below. Changes will be highlighted until saved.
+                          </div>
                           <textarea
                             value={editableContent}
                             onChange={(e) => setEditableContent(e.target.value)}
                             className="w-full h-[500px] p-4 border-0 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed"
                             placeholder="Your optimized resume will appear here for editing..."
                           />
+                          <div className="bg-gray-50 border-t px-4 py-2 flex justify-between items-center text-xs text-gray-600">
+                            <span>
+                              Characters: {editableContent.length} • Words: {editableContent.split(/\s+/).filter(word => word.length > 0).length}
+                            </span>
+                            {hasUnsavedChanges && (
+                              <span className="text-orange-600 font-medium">
+                                Unsaved changes
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {/* Additional Suggestions */}
+                  {result.suggestions && result.suggestions.length > 0 && (
+                    <div className="bg-white rounded-2xl shadow-xl p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">AI Suggestions</h3>
+                        <Lightbulb className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <div className="space-y-3">
+                        {result.suggestions.map((suggestion, index) => (
+                          <div key={index} className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                            <div className="bg-blue-100 p-1.5 rounded-full">
+                              <Lightbulb className="h-3 w-3 text-blue-600" />
+                            </div>
+                            <p className="text-sm text-blue-800 flex-1">{suggestion}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
