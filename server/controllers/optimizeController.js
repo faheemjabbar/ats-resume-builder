@@ -17,7 +17,7 @@ const optimizeResume = async (req, res) => {
 
         console.log("Optimizing resume, text length:", resumeText.length);
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         
         // System prompt for resume optimization
         const systemPrompt = `You are an assistant that rewrites resumes to be ATS-friendly.

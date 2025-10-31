@@ -1,8 +1,14 @@
 import axios from "axios";
 
+// FIXED: Updated API URL to match server route structure
 const api = axios.create({
-  baseURL: 'https://ats-resume-builder-s0y9.onrender.com',
-  timeout: 30000,
+  baseURL: process.env.NODE_ENV === 'production' 
+    ? 'https://ats-resume-builder-s0y9.onrender.com'
+    : 'http://localhost:5000',
+  timeout: 60000, // Increased timeout for AI processing
+  headers: {
+    'Content-Type': 'application/json',
+  }
 });
 
 // Request interceptor
@@ -13,7 +19,6 @@ api.interceptors.request.use(
       url: config.url,
       baseURL: config.baseURL,
       fullURL: `${config.baseURL}${config.url}`,
-      headers: config.headers,
     });
     return config;
   },
@@ -29,7 +34,6 @@ api.interceptors.response.use(
     console.log('✅ API Response:', {
       status: response.status,
       statusText: response.statusText,
-      data: response.data,
       url: response.config.url,
     });
     return response;
@@ -41,6 +45,14 @@ api.interceptors.response.use(
       status: error.response?.status,
       url: error.config?.url,
     });
+    
+    // Better error handling
+    if (error.code === 'ECONNABORTED') {
+      error.message = 'Request timeout - AI processing is taking longer than expected';
+    } else if (!error.response) {
+      error.message = 'Cannot connect to server. Please check your connection.';
+    }
+    
     return Promise.reject(error);
   }
 );
