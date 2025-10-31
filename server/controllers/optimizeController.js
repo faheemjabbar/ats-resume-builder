@@ -7,6 +7,26 @@ if (!process.env.GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+/**
+ * Helper function to extract JSON from markdown code blocks
+ * Handles cases where AI returns JSON wrapped in ```json ... ```
+ */
+const extractJSON = (text) => {
+    // Remove markdown code blocks if present
+    const jsonMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonMatch) {
+        return jsonMatch[1].trim();
+    }
+    
+    // Try to find raw JSON object
+    const objectMatch = text.match(/\{[\s\S]*\}/);
+    if (objectMatch) {
+        return objectMatch[0].trim();
+    }
+    
+    return text.trim();
+};
+
 const optimizeResume = async (req, res) => {
     try {
         const { resumeText, jobDescription } = req.body;
@@ -53,36 +73,47 @@ ${jobDescription}
 Resume:
 ${resumeText}
 
-Respond with ONLY a JSON object in this exact format: {"matchScore": number, "missingKeywords": ["keyword1", "keyword2"]}`;
+Respond with ONLY a JSON object in this exact format (no markdown, no code blocks): {"matchScore": number, "missingKeywords": ["keyword1", "keyword2"]}`;
         
         const analysisResult = await model.generateContent(analysisPrompt);
-        const analysisText = analysisResult.response.text().trim();
+        let analysisText = analysisResult.response.text().trim();
         
         let matchScore = null;
         let missingKeywords = [];
         
-        // Parse the analysis JSON
+        // Parse the analysis JSON with improved error handling
         try {
-            const analysis = JSON.parse(analysisText);
+            // Extract JSON from potential markdown code blocks
+            const cleanJSON = extractJSON(analysisText);
+            console.log("Cleaned JSON:", cleanJSON);
+            
+            const analysis = JSON.parse(cleanJSON);
             matchScore = analysis.matchScore ?? null;
             missingKeywords = analysis.missingKeywords ?? [];
         } catch (e) {
             console.error("Analysis JSON parse error:", e);
             console.log("Raw analysis response:", analysisText);
             
-            // Fallback: try to extract JSON from the response
-            const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try {
+            // Enhanced fallback: try multiple extraction methods
+            try {
+                // Try extracting just the JSON part
+                const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
                     const analysis = JSON.parse(jsonMatch[0]);
                     matchScore = analysis.matchScore ?? null;
                     missingKeywords = analysis.missingKeywords ?? [];
-                } catch (fallbackError) {
-                    console.error("Fallback JSON parse also failed:", fallbackError);
-                    // Set default values if parsing fails
+                    console.log("Successfully parsed using fallback method");
+                } else {
+                    // If all parsing fails, set reasonable defaults
+                    console.warn("Could not parse JSON, using defaults");
                     matchScore = 75;
-                    missingKeywords = ["Unable to analyze"];
+                    missingKeywords = ["Unable to analyze keywords"];
                 }
+            } catch (fallbackError) {
+                console.error("Fallback JSON parse also failed:", fallbackError);
+                // Set default values if parsing fails
+                matchScore = 75;
+                missingKeywords = ["Unable to analyze"];
             }
         }
 
